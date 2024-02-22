@@ -1,13 +1,19 @@
 import { Button, Form, Segment } from 'semantic-ui-react';
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { useStore } from '../../../stores/store';
 import { observer } from 'mobx-react-lite';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Activity } from '../../../models/activity';
+import LoadingComponent from '../../../layout/LoadingComponent';
+import { v4 as uuid } from 'uuid';
 
 export default observer(function ActivityForm() {
   const { activityStore } = useStore();
-  const { selectedActivity, loading, closeForm, createActivity, updateActivity } = activityStore;
+  const { loading, createActivity, updateActivity, loadActivity, loadingInitial } = activityStore;
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  const initialState = selectedActivity ?? {
+  const [activity, setActivity] = useState<Activity>({
     id: '',
     title: '',
     date: '',
@@ -15,18 +21,27 @@ export default observer(function ActivityForm() {
     category: '',
     city: '',
     venue: '',
-  };
+  });
 
-  const [activity, setActivity] = useState(initialState);
+  useEffect(() => {
+    if (id) loadActivity(id).then(activity => setActivity(activity!));
+  }, [id, loadActivity]);
 
   function handleSubmit() {
-    activity.id ? updateActivity(activity) : createActivity(activity);
+    if (!activity.id) {
+      activity.id = uuid();
+      createActivity(activity).then(() => navigate(`/activities/${activity.id}`));
+    } else {
+      updateActivity(activity).then(() => navigate(`/activities/${activity.id}`));
+    }
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = event.target;
     setActivity({ ...activity, [name]: value });
   }
+
+  if (loadingInitial) return <LoadingComponent content='Loading Activity... ' />;
 
   return (
     <Segment clearing>
@@ -69,7 +84,7 @@ export default observer(function ActivityForm() {
           onChange={handleInputChange}
         />
         <Button loading={loading} floated='right' positive type='submit' content='Submit' />
-        <Button floated='right' type='button' content='Cancel' onClick={closeForm} />
+        <Button as={Link} to='/activities' floated='right' type='button' content='Cancel' />
       </Form>
     </Segment>
   );
